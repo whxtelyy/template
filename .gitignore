@@ -1,8 +1,5 @@
-# Локальные файлы окружения: создаются tripgoctl, у каждого свои
 .env
 .tripgo/
-
-# Сборка
-bin/
-
-.DS_Store
+/bin/
+trip-service
+*.exe.vscode/
