@@ -1,5 +1,6 @@
 .env
 .tripgo/
 /bin/
-trip-service
-*.exe.vscode/
+/trip-service
+*.exe
+.vscode/
