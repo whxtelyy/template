@@ -12,6 +12,7 @@ import (
 	createhttp "github.com/whxtelyy/template/internal/http/trip/create"
 	finishhttp "github.com/whxtelyy/template/internal/http/trip/finish"
 	gethttp "github.com/whxtelyy/template/internal/http/trip/get"
+	positionshttp "github.com/whxtelyy/template/internal/http/trip/positions"
 	"github.com/whxtelyy/template/internal/http/trip/shared"
 )
 
@@ -19,13 +20,22 @@ type Handler struct {
 	create       *createhttp.Handler
 	get          *gethttp.Handler
 	finish       *finishhttp.Handler
+	positions    *positionshttp.Handler
 	db           readiness
 	logger       *slog.Logger
 	readyTimeout time.Duration
 }
 
-func NewHandler(create createUseCase, get getUseCase, finish finishUseCase, db readiness, logger *slog.Logger, readyTimeout time.Duration) *Handler {
-	return &Handler{create: createhttp.New(create, logger), get: gethttp.New(get, logger), finish: finishhttp.New(finish, logger), db: db, logger: logger, readyTimeout: readyTimeout}
+func NewHandler(create createUseCase, get getUseCase, finish finishUseCase, positions positionsUseCase, db readiness, logger *slog.Logger, readyTimeout time.Duration) *Handler {
+	return &Handler{create: createhttp.New(create, logger), get: gethttp.New(get, logger), finish: finishhttp.New(finish, logger), positions: positionshttp.New(positions, logger), db: db, logger: logger, readyTimeout: readyTimeout}
+}
+
+func (h *Handler) CreateTripPosition(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	h.positions.Save(w, r, id)
+}
+
+func (h *Handler) ListTripPositions(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
+	h.positions.List(w, r, id)
 }
 
 var _ api.ServerInterface = (*Handler)(nil)

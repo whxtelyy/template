@@ -26,7 +26,7 @@ func testHandler(t *testing.T) (*Handler, *MockcreateUseCase, *MockgetUseCase, *
 	ctrl := gomock.NewController(t)
 	c, g, f := NewMockcreateUseCase(ctrl), NewMockgetUseCase(ctrl), NewMockfinishUseCase(ctrl)
 	ready := NewMockreadiness(ctrl)
-	return NewHandler(c, g, f, ready, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second), c, g, f
+	return NewHandler(c, g, f, NewMockpositionsUseCase(ctrl), ready, slog.New(slog.NewTextHandler(io.Discard, nil)), time.Second), c, g, f
 }
 
 func TestCreateTripResponses(t *testing.T) {

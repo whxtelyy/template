@@ -5,6 +5,8 @@ generate:
   chi-server: true
 output-options:
   include-operation-ids:
+    - createTripPosition
+    - listTripPositions
     - createTrip
     - getTrip
     - finishTrip

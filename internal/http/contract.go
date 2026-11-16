@@ -20,3 +20,8 @@ type finishUseCase interface {
 	Execute(context.Context, uuid.UUID) (domain.Trip, error)
 }
 type readiness interface{ Ping(context.Context) error }
+
+type positionsUseCase interface {
+	Save(context.Context, domain.Position) (domain.Position, error)
+	List(context.Context, uuid.UUID) ([]domain.Position, error)
+}

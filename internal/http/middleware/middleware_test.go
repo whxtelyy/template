@@ -12,13 +12,13 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.uber.org/mock/gomock"
 
 	api "github.com/whxtelyy/template/internal/generated"
 )
@@ -26,6 +26,7 @@ import (
 const (
 	healthRoute    = "/health"
 	unmatchedRoute = "unmatched"
+	tripRoute      = "/api/v1/trips/{tripId}"
 )
 
 func TestRecover(t *testing.T) {
@@ -49,9 +50,9 @@ func TestRouteUsesTemplate(t *testing.T) {
 		status              int
 	}{
 		{http.MethodGet, healthRoute, healthRoute, 200},
-		{http.MethodGet, "/api/v1/trips/5cb72c04-7650-45c9-a79b-bcdba0631e0c", "/api/v1/trips/{tripId}", 200},
+		{http.MethodGet, "/api/v1/trips/5cb72c04-7650-45c9-a79b-bcdba0631e0c", tripRoute, 200},
 		{http.MethodPost, "/api/v1/trips/5cb72c04-7650-45c9-a79b-bcdba0631e0c/finish", "/api/v1/trips/{tripId}/finish", 200},
-		{http.MethodGet, "/api/v1/trips/bad-uuid", "/api/v1/trips/{tripId}", 400},
+		{http.MethodGet, "/api/v1/trips/bad-uuid", tripRoute, 400},
 		{http.MethodGet, "/unknown/5cb72c04-7650-45c9-a79b-bcdba0631e0c", unmatchedRoute, 404},
 		{http.MethodDelete, healthRoute, unmatchedRoute, 405},
 	} {
@@ -68,7 +69,19 @@ func TestRouteUsesTemplate(t *testing.T) {
 			t.Cleanup(func() { _ = tp.Shutdown(context.Background()) })
 			router := chi.NewRouter()
 			router.Use(Tracing(tp), metrics)
-			h := api.HandlerWithOptions(routeServer{}, api.ChiServerOptions{BaseRouter: router})
+			server := NewMockServerInterface(gomock.NewController(t))
+			ok := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }
+			if tc.status == 200 {
+				switch tc.route {
+				case healthRoute:
+					server.EXPECT().Health(gomock.Any(), gomock.Any()).Do(ok)
+				case tripRoute:
+					server.EXPECT().GetTrip(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(w http.ResponseWriter, r *http.Request, _ any) { ok(w, r) })
+				default:
+					server.EXPECT().FinishTrip(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(w http.ResponseWriter, r *http.Request, _ any) { ok(w, r) })
+				}
+			}
+			h := api.HandlerWithOptions(server, api.ChiServerOptions{BaseRouter: router})
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, httptest.NewRequest(tc.method, tc.path, nil))
 			if w.Code != tc.status {
@@ -81,17 +94,6 @@ func TestRouteUsesTemplate(t *testing.T) {
 			assertHTTPMetric(t, reader, tc.route, tc.status)
 		})
 	}
-}
-
-type routeServer struct{ api.ServerInterface }
-
-func (routeServer) Health(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }
-func (routeServer) GetTrip(w http.ResponseWriter, _ *http.Request, _ uuid.UUID) {
-	w.WriteHeader(http.StatusOK)
-}
-
-func (routeServer) FinishTrip(w http.ResponseWriter, _ *http.Request, _ uuid.UUID) {
-	w.WriteHeader(http.StatusOK)
 }
 
 func assertHTTPMetric(t *testing.T, reader *sdkmetric.ManualReader, route string, status int) {

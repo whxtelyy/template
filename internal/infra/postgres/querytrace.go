@@ -26,6 +26,8 @@ type QueryTracer struct {
 	Duration metric.Float64Histogram
 }
 
+//go:generate go tool mockgen -destination=mocks_test.go -package=postgres github.com/jackc/pgx/v5 QueryTracer
+
 func NewQueryTracer(delegate pgx.QueryTracer, meter metric.Meter) (*QueryTracer, error) {
 	duration, err := meter.Float64Histogram("db.client.operation.duration", metric.WithUnit("s"),
 		metric.WithExplicitBucketBoundaries(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10))
@@ -61,7 +63,7 @@ func collectionName(query string) string {
 	for i, token := range fields {
 		if (token == "FROM" || token == "INTO" || token == "UPDATE") && i+1 < len(fields) {
 			name := strings.Trim(fields[i+1], `"(),;`)
-			if name == "TRIPS" || name == "TRIP_STATUS_HISTORY" || name == "TRIP_IDEMPOTENCY_KEYS" {
+			if name == "TRIPS" || name == "TRIP_POSITIONS" || name == "TRIP_STATUS_HISTORY" || name == "TRIP_IDEMPOTENCY_KEYS" {
 				return strings.ToLower(name)
 			}
 		}

@@ -173,3 +173,57 @@ func (mr *MockreadinessMockRecorder) Ping(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*Mockreadiness)(nil).Ping), arg0)
 }
+
+// MockpositionsUseCase is a mock of positionsUseCase interface.
+type MockpositionsUseCase struct {
+	ctrl     *gomock.Controller
+	recorder *MockpositionsUseCaseMockRecorder
+	isgomock struct{}
+}
+
+// MockpositionsUseCaseMockRecorder is the mock recorder for MockpositionsUseCase.
+type MockpositionsUseCaseMockRecorder struct {
+	mock *MockpositionsUseCase
+}
+
+// NewMockpositionsUseCase creates a new mock instance.
+func NewMockpositionsUseCase(ctrl *gomock.Controller) *MockpositionsUseCase {
+	mock := &MockpositionsUseCase{ctrl: ctrl}
+	mock.recorder = &MockpositionsUseCaseMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockpositionsUseCase) EXPECT() *MockpositionsUseCaseMockRecorder {
+	return m.recorder
+}
+
+// List mocks base method.
+func (m *MockpositionsUseCase) List(arg0 context.Context, arg1 uuid.UUID) ([]trip.Position, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", arg0, arg1)
+	ret0, _ := ret[0].([]trip.Position)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockpositionsUseCaseMockRecorder) List(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockpositionsUseCase)(nil).List), arg0, arg1)
+}
+
+// Save mocks base method.
+func (m *MockpositionsUseCase) Save(arg0 context.Context, arg1 trip.Position) (trip.Position, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Save", arg0, arg1)
+	ret0, _ := ret[0].(trip.Position)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Save indicates an expected call of Save.
+func (mr *MockpositionsUseCaseMockRecorder) Save(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockpositionsUseCase)(nil).Save), arg0, arg1)
+}
