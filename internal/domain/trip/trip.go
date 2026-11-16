@@ -2,6 +2,7 @@ package trip
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,10 +39,10 @@ type ValidationError struct {
 func (e *ValidationError) Error() string { return fmt.Sprintf("%s: %s", e.Field, e.Reason) }
 
 func (c Coordinates) Validate(field string) error {
-	if c.Latitude < -90 || c.Latitude > 90 {
+	if math.IsNaN(c.Latitude) || math.IsInf(c.Latitude, 0) || c.Latitude < -90 || c.Latitude > 90 {
 		return &ValidationError{Field: field + ".latitude", Reason: "must be between -90 and 90"}
 	}
-	if c.Longitude < -180 || c.Longitude > 180 {
+	if math.IsNaN(c.Longitude) || math.IsInf(c.Longitude, 0) || c.Longitude < -180 || c.Longitude > 180 {
 		return &ValidationError{Field: field + ".longitude", Reason: "must be between -180 and 180"}
 	}
 	return nil

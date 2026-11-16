@@ -37,14 +37,17 @@ func run() error {
 	var closeCtx context.Context
 	var closeCancel context.CancelFunc
 	defer func() {
-		if closeCtx != nil {
-			app.Close(closeCtx)
-			closeCancel()
-			return
+		if closeCtx == nil {
+			closeCtx, closeCancel = context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
-		defer cancel()
-		app.Close(ctx)
+		defer closeCancel()
+		closed := make(chan struct{})
+		go func() { app.Close(closeCtx); close(closed) }()
+		select {
+		case <-closed:
+		case <-closeCtx.Done():
+			app.Logger.Error("shutdown deadline exceeded; process exiting", "error", closeCtx.Err())
+		}
 	}()
 	listener, err := net.Listen("tcp", cfg.HTTPAddr)
 	if err != nil {

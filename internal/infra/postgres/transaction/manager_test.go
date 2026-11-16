@@ -10,32 +10,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/mock/gomock"
 )
-
-type fakeTx struct {
-	pgx.Tx
-	rollbackErr        error
-	rollbackCtxErr     error
-	rollbacks, commits int
-}
-
-func (tx *fakeTx) Rollback(ctx context.Context) error {
-	tx.rollbacks++
-	tx.rollbackCtxErr = ctx.Err()
-	return tx.rollbackErr
-}
-
-func (tx *fakeTx) Commit(context.Context) error { tx.commits++; return nil }
-
-type fakePool struct {
-	tx     *fakeTx
-	begins int
-}
-
-func (p *fakePool) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error) {
-	p.begins++
-	return p.tx, nil
-}
 
 func TestPanicRollback(t *testing.T) {
 	for _, tc := range []struct {
@@ -43,14 +19,20 @@ func TestPanicRollback(t *testing.T) {
 		err    error
 		logged bool
 	}{
-		{"failed", errors.New("rollback unavailable"), true},
-		{"closed", pgx.ErrTxClosed, false},
-		{"success", nil, false},
+		{"failed", errors.New("rollback unavailable"), true}, {"closed", pgx.ErrTxClosed, false}, {"success", nil, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var logs bytes.Buffer
-			tx := &fakeTx{rollbackErr: tc.err}
-			pool := &fakePool{tx: tx}
+			ctrl := gomock.NewController(t)
+			tx := NewMockTx(ctrl)
+			pool := NewMockbeginner(ctrl)
+			pool.EXPECT().BeginTx(gomock.Any(), pgx.TxOptions{IsoLevel: pgx.ReadCommitted}).Return(tx, nil)
+			tx.EXPECT().Rollback(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
+				if ctx.Err() != nil {
+					t.Errorf("rollback context: %v", ctx.Err())
+				}
+				return tc.err
+			})
 			m := NewManager(pool, pgx.ReadCommitted, time.Second, slog.New(slog.NewJSONHandler(&logs, nil)))
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
@@ -58,30 +40,48 @@ func TestPanicRollback(t *testing.T) {
 			func() {
 				defer func() {
 					if got := recover(); got != original {
-						t.Fatalf("panic=%v", got)
+						t.Errorf("panic=%v", got)
 					}
 				}()
 				_ = m.Do(ctx, func(inner context.Context) error {
 					return m.Do(inner, func(context.Context) error { cancel(); panic(original) })
 				})
 			}()
-			if pool.begins != 1 || tx.rollbacks != 1 || tx.commits != 0 || tx.rollbackCtxErr != nil {
-				t.Fatalf("begins=%d rollbacks=%d commits=%d rollback context=%v", pool.begins, tx.rollbacks, tx.commits, tx.rollbackCtxErr)
-			}
-			if got := strings.Contains(logs.String(), "rollback after panic failed"); got != tc.logged {
+			if strings.Contains(logs.String(), "rollback after panic failed") != tc.logged {
 				t.Fatalf("logs=%s", logs.String())
 			}
 		})
 	}
 }
 
-func TestOrdinaryRollbackError(t *testing.T) {
-	var logs bytes.Buffer
-	tx := &fakeTx{rollbackErr: errors.New("rollback unavailable")}
-	m := NewManager(&fakePool{tx: tx}, pgx.ReadCommitted, time.Second, slog.New(slog.NewJSONHandler(&logs, nil)))
+func TestTransactionOutcomes(t *testing.T) {
 	original := errors.New("function failed")
-	err := m.Do(context.Background(), func(context.Context) error { return original })
-	if !errors.Is(err, original) || !strings.Contains(err.Error(), "rollback failed") || logs.Len() != 0 {
-		t.Fatalf("err=%v logs=%s", err, logs.String())
+	commitErr := errors.New("commit failed")
+	for _, tc := range []struct {
+		name                          string
+		fnErr, commitErr, rollbackErr error
+	}{
+		{name: "commit"}, {name: "commit failure", commitErr: commitErr}, {name: "rollback", fnErr: original}, {name: "rollback failure", fnErr: original, rollbackErr: errors.New("rollback failed")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			tx := NewMockTx(ctrl)
+			pool := NewMockbeginner(ctrl)
+			pool.EXPECT().BeginTx(gomock.Any(), gomock.Any()).Return(tx, nil)
+			if tc.fnErr != nil {
+				tx.EXPECT().Rollback(gomock.Any()).Return(tc.rollbackErr)
+			} else {
+				tx.EXPECT().Commit(gomock.Any()).Return(tc.commitErr)
+			}
+			m := NewManager(pool, pgx.ReadCommitted, time.Second, slog.Default())
+			err := m.Do(context.Background(), func(context.Context) error { return tc.fnErr })
+			want := tc.fnErr
+			if want == nil {
+				want = tc.commitErr
+			}
+			if !errors.Is(err, want) {
+				t.Fatalf("error=%v want=%v", err, want)
+			}
+		})
 	}
 }

@@ -19,10 +19,6 @@ type Executor interface {
 
 type contextKey struct{}
 
-type beginner interface {
-	BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, error)
-}
-
 type Manager struct {
 	pool    beginner
 	iso     pgx.TxIsoLevel

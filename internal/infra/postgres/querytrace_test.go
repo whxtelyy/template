@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	"go.uber.org/mock/gomock"
 )
 
 func TestCollectionName(t *testing.T) {
@@ -23,18 +24,14 @@ func TestCollectionName(t *testing.T) {
 	}
 }
 
-type queryDelegate struct{}
-
-func (queryDelegate) TraceQueryStart(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context {
-	return ctx
-}
-func (queryDelegate) TraceQueryEnd(context.Context, *pgx.Conn, pgx.TraceQueryEndData) {}
-
 func TestQueryDurationBuckets(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { _ = provider.Shutdown(context.Background()) })
-	tracer, err := NewQueryTracer(queryDelegate{}, provider.Meter("test"))
+	delegate := NewMockQueryTracer(gomock.NewController(t))
+	delegate.EXPECT().TraceQueryStart(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryStartData) context.Context { return ctx })
+	delegate.EXPECT().TraceQueryEnd(gomock.Any(), gomock.Any(), gomock.Any())
+	tracer, err := NewQueryTracer(delegate, provider.Meter("test"))
 	if err != nil {
 		t.Fatal(err)
 	}

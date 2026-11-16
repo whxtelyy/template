@@ -17,6 +17,40 @@ type Config struct {
 	LogLevel              string
 	ShutdownTimeout       time.Duration
 	Database              DatabaseConfig
+	Positions             PositionsConfig
+}
+
+type PositionsConfig struct {
+	CheckInterval, StaleAfter, RequestTimeout time.Duration
+	Workers, QueueSize, BatchSize             int
+	PushURL                                   string
+}
+
+func loadPositions() (PositionsConfig, error) {
+	var p PositionsConfig
+	for name, dst := range map[string]*time.Duration{"POSITION_CHECK_INTERVAL": &p.CheckInterval, "POSITION_STALE_AFTER": &p.StaleAfter, "PUSH_REQUEST_TIMEOUT": &p.RequestTimeout} {
+		value, err := requiredDuration(name)
+		if err != nil {
+			return p, err
+		}
+		if value <= 0 {
+			return p, fmt.Errorf("%s must be positive", name)
+		}
+		*dst = value
+	}
+	for name, dst := range map[string]*int{"POSITION_WORKERS": &p.Workers, "POSITION_QUEUE_SIZE": &p.QueueSize, "POSITION_BATCH_SIZE": &p.BatchSize} {
+		value, err := requiredInt32(name)
+		if err != nil {
+			return p, err
+		}
+		if value <= 0 {
+			return p, fmt.Errorf("%s must be positive", name)
+		}
+		*dst = int(value)
+	}
+	var err error
+	p.PushURL, err = requiredString("PUSH_HTTP_URL")
+	return p, err
 }
 
 type DatabaseConfig struct {
@@ -29,6 +63,10 @@ type DatabaseConfig struct {
 }
 
 func Load() (Config, error) {
+	positions, err := loadPositions()
+	if err != nil {
+		return Config{}, err
+	}
 	httpAddr, err := requiredString("HTTP_ADDR")
 	if err != nil {
 		return Config{}, err
@@ -100,6 +138,7 @@ func Load() (Config, error) {
 	}
 
 	return Config{
+		Positions:             positions,
 		HTTPAddr:              httpAddr,
 		HTTPReadTimeout:       httpReadTimeout,
 		HTTPReadHeaderTimeout: httpReadHeaderTimeout,

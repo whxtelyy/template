@@ -36,7 +36,7 @@ func (r *TripRepository) Create(ctx context.Context, trip domain.Trip) (domain.T
 		Insert("trips").
 		Columns("id", "user_id", "driver_id", "start_latitude", "start_longitude", "end_latitude", "end_longitude", "price", "status", "started_at").
 		Values(trip.ID, trip.UserID, trip.DriverID, trip.StartPoint.Latitude, trip.StartPoint.Longitude, trip.EndPoint.Latitude, trip.EndPoint.Longitude, trip.Price, trip.Status, squirrel.Expr("now()")).
-		Suffix("RETURNING id, user_id, driver_id, start_latitude, start_longitude, end_latitude, end_longitude, price, status, started_at, finished_at, NULL::timestamptz AS last_position_at").
+		Suffix("RETURNING id, user_id, driver_id, start_latitude, start_longitude, end_latitude, end_longitude, price, status, started_at, finished_at, last_position_at").
 		ToSql()
 	if err != nil {
 		return domain.Trip{}, fmt.Errorf("build create trip query: %w", err)
@@ -87,7 +87,7 @@ func (r *TripRepository) Get(ctx context.Context, id uuid.UUID) (domain.Trip, er
 
 	executor := transaction.ExecutorFromContext(ctx, r.pool)
 	query, args, err := squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar).
-		Select("id", "user_id", "driver_id", "start_latitude", "start_longitude", "end_latitude", "end_longitude", "price", "status", "started_at", "finished_at", "NULL::timestamptz AS last_position_at").
+		Select("id", "user_id", "driver_id", "start_latitude", "start_longitude", "end_latitude", "end_longitude", "price", "status", "started_at", "finished_at", "last_position_at").
 		From("trips").
 		Where(squirrel.Eq{"id": id}).
 		ToSql()
@@ -122,7 +122,7 @@ func (r *TripRepository) Finish(ctx context.Context, id uuid.UUID) (domain.Trip,
 		Set("finished_at", squirrel.Expr("now()")).
 		Set("updated_at", squirrel.Expr("now()")).
 		Where(squirrel.Eq{"id": id, "status": "active"}).
-		Suffix("RETURNING id, user_id, driver_id, start_latitude, start_longitude, end_latitude, end_longitude, price, status, started_at, finished_at, NULL::timestamptz AS last_position_at").
+		Suffix("RETURNING id, user_id, driver_id, start_latitude, start_longitude, end_latitude, end_longitude, price, status, started_at, finished_at, last_position_at").
 		ToSql()
 	if err != nil {
 		return domain.Trip{}, fmt.Errorf("build finish trip query: %w", err)

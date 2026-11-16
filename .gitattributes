@@ -1,0 +1,4 @@
+Makefile text eol=lf
+.env.example text eol=lf
+*.sh text eol=lf
+*.go text eol=lf

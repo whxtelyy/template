@@ -18,7 +18,7 @@ migrate:
 
 generate:
 	go tool oapi-codegen -config config/oapi-codegen.yaml contracts/openapi/trip-service.openapi.yaml
-	go generate ./internal/usecase/trip/... ./internal/http/...
+	go generate ./internal/...
 
 test:
 	go test -race -coverpkg=./internal/domain/...,./internal/usecase/... -coverprofile=coverage.out ./...
@@ -28,7 +28,7 @@ test-integration:
 	set -a; \
 	[ ! -f .env ] || . ./.env; \
 	set +a; \
-	go test -race -tags=integration -count=2 ./internal/repository/...
+	DATABASE_URL="$${TEST_DATABASE_URL:-$$DATABASE_URL}" go test -race -tags=integration -count=2 ./internal/repository/...
 
 lint:
 	go tool golangci-lint run ./...
@@ -37,4 +37,4 @@ build:
 	go build -ldflags="-X github.com/whxtelyy/template/internal/infra/telemetry.Version=$(VERSION)" -o bin/$(SERVICE) ./cmd/trip-service
 
 docker-build:
-	docker build --build-arg VERSION=$(VERSION) -f deploy/Dockerfile -t trip-service:lab2 .
+	docker build --build-arg VERSION=$(VERSION) -f deploy/Dockerfile -t trip-service:lab3 .
